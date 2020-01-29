@@ -14,51 +14,105 @@ import java.util.function.BooleanSupplier;
 @RequiresApi(api = Build.VERSION_CODES.N)
 public class ButtonReader implements KeyReader {
 
-    /** Last state of the button **/
+    /** Holds the last state of the button (true if pressed, false if not pressed) */
     private boolean lastState;
-    /** Current state of the button **/
+
+    /** Holds the last state of the button (true if pressed, false if not pressed) */
     private boolean currState;
-    private Telemetry telemetry;
-    /*** Description of Button ***/
+
+    /** Telemetry reference for the button */
+    private Telemetry telemetry = null;
+
+    /** Name of the button */
     private String buttonName;
 
+    /** State of the button as defined by a {@link java.util.function.BooleanSupplier} */
     private BooleanSupplier buttonState;
-    /** Initializes controller variables
-     * @param gamepad The controller joystick
-     * @param button The controller button
-    **/
-    public ButtonReader(GamepadEx gamepad, GamepadKeys.Button button) {
 
+    /**
+     * Defines a ButtonReader using the gamepad and button references
+     * @param gamepad the gamepad the button to be read is on
+     * @param button the button to be read
+     */
+    public ButtonReader(GamepadEx gamepad, GamepadKeys.Button button) {
         buttonState = () -> gamepad.getButton(button);
         currState = buttonState.getAsBoolean();
         lastState = currState;
     }
 
+    /**
+     * Defines a ButtonReader using the gamepad and button references and a {@link Telemetry} instance
+     * to post button states to
+     * @param gamepad the gamepad the button to be read is on
+     * @param button the button to be read
+     * @param tel the telemetry instance to post button states to
+     */
+    public ButtonReader(GamepadEx gamepad, GamepadKeys.Button button, Telemetry tel) {
+        this(gamepad, button);
+        telemetry = tel;
+    }
+
+    /**
+     * Defines a ButtonReader using a {@link BooleanSupplier} instead of a gamepad. Useful for running
+     * a ButtonReader in simulation
+     * @param buttonValue the {@link BooleanSupplier} button value to be read
+     */
     public ButtonReader(BooleanSupplier buttonValue) {
         buttonState = buttonValue;
         currState = buttonState.getAsBoolean();
         lastState = currState;
     }
 
-    /** Reads button value **/
+    /**
+     * Defines a ButtonReader using a {@link BooleanSupplier} instead of a gamepad. Useful for running
+     * a ButtonReader in simulation. Can post telemetry
+     * @param buttonValue the {@link BooleanSupplier} button value to be read
+     * @param tel the telemetry instance to post button states to
+     */
+    public ButtonReader(BooleanSupplier buttonValue, Telemetry tel) {
+        this(buttonValue);
+        telemetry = tel;
+    }
+
+    /**
+     * Read the value of the button and save it internally. If telemetry is in use, then we will also
+     * publish the button state to it using:
+     * <pre><code>
+     *     if (telemetry != null) {
+     *             telemetry.addData(String.format("Button %s state: ", buttonName), isDown() ? "pressed" : "not pressed");
+     *             telemetry.update();
+     *     }
+     * </code></pre>
+     */
     public void readValue() {
         lastState = currState;
         currState = buttonState.getAsBoolean();
+
+        // Telemetry isn't guaranteed to be enabled
+        if (telemetry != null) {
+            telemetry.addData(String.format("Button %s state: ", buttonName), isDown() ? "pressed" : "not pressed");
+            telemetry.update();
+        }
     }
 
-    /** Checks if the button is down **/
+    /**
+     * Check if the button is pressed
+     * @return true if the button is pressed, false otherwise
+     */
     public boolean isDown() {
         return buttonState.getAsBoolean();
     }
-    /** Checks if the button was just pressed **/
+
+    /**
+     * Check if the button's last state was not pressed and is now pressed
+     * @return true if the last state is not pressed and is now pressed, and false otherwise
+     */
     public boolean wasJustPressed() {
         return (lastState == false && currState == true);
     }
-    /** Checks if the button was just released **/
     public boolean wasJustReleased() {
         return (lastState == true && currState == false);
     }
-    /** Checks if the button state has changed **/
     public boolean stateJustChanged() {
         return (lastState != currState);
     }
